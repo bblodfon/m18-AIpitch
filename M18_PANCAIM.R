@@ -64,12 +64,12 @@ data_tbl %>%
   geom_hline(yintercept = 0.5, linetype = 'dotted') +
   geom_text(x = 2.5, y = 0.47, label = "Random", angle = 90) +
   theme(axis.title.y = element_blank())
-ggsave(filename = 'cmp_learners.png', width = 6, height = 2)
+ggsave(filename = 'img/cmp_learners.png', width = 6, height = 2)
 
 # Plot tree ---
 fit = rpart$model
 
-png(filename = 'tree.png', units = 'in', width = 6, height = 6, res = 300)
+png(filename = 'img/tree.png', units = 'in', width = 6, height = 6, res = 300)
 rpart.plot(fit, type = 2, extra = 101, box.palette = "GnBu", branch.lty = 3,
   shadow.col = "gray", nn = FALSE, digits = 3)
 dev.off()
@@ -207,7 +207,7 @@ surv_data %>%
     label = round(sp_2y_ph, 4), size = 5) +
   labs(x = 'Days', y = 'Survival Probability') +
   mlr3viz::theme_mlr3(base_size = 14, legend = 'right')
-ggsave(filename = 'surv_plot_bad_ind.png', width = 7, height = 5)
+ggsave(filename = 'img/surv_plot_bad_ind.png', width = 7, height = 5)
 
 # Test case - 'good' individual ----
 # patient's data (died at ~2 years)
@@ -287,4 +287,4 @@ surv_data2 %>%
     label = round(sp_2y_ph2, 3), size = 5) +
   labs(x = 'Days', y = 'Survival Probability') +
   mlr3viz::theme_mlr3(base_size = 14, legend = 'right')
-ggsave(filename = 'surv_plot_good_ind.png', width = 7, height = 5)
+ggsave(filename = 'img/surv_plot_good_ind.png', width = 7, height = 5)
