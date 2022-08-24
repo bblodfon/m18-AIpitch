@@ -2,31 +2,32 @@
 library(mlr3verse)
 library(mlr3proba)
 library(mlr3extralearners)
-library(dplyr)
-library(tibble)
-library(ggplot2)
+library(mlr3mbo)
+library(tidyverse)
 library(ggpubr)
 library(rpart.plot)
+
 set.seed(42)
 
 # Task Lung ----
-?survival::lung
+task = tsk('lung')
+task$data()
 
 # Data Preprocessing
-lung = survival::lung
-lung %>% as_tibble()
 
-lung$status = (lung$status == 2L) # 2 is death so convert to 1
-lung = lung %>% select(-inst) # remove Institution code (irrelevant for us)
-lung$ph.ecog = as.integer(lung$ph.ecog)
+## remove Institution code (irrelevant for us)
+features_to_keep = task$feature_names[task$feature_names != 'inst']
+task$select(cols = features_to_keep)
 
-task = as_task_surv(x = lung, time = 'time', event = 'status', id = 'lung')
-task$missings() # missing values!
+## Encode sex factor and impute missing values
+task$data()$sex
+task$missings()
 
-# Impute NA's
-impute_po = po("imputelearner", lrn('regr.rpart'))
-task_lung = impute_po$train(list(task))[[1]]
+preprocess = po('encode') %>>% po('imputelearner', lrn('regr.rpart'))
+task_lung = preprocess$train(task)[[1]]
+
 task_lung$missings() # no missing values
+task_lung
 
 # split dataset to train and test
 train_set = sample(task_lung$nrow, 0.8 * task_lung$nrow)
@@ -37,9 +38,24 @@ intersect(train_set, test_set)
 cox = lrn('surv.coxph', id = 'CoxPH')
 rpart = lrn('surv.rpart', id = 'SurvivalTree')
 ranger = lrn('surv.ranger', verbose = FALSE, id = 'SurvivalForest')
-#ctree = lrn('surv.ctree')
+xgboost = lrn('surv.xgboost',
+  nthread = 4, booster = 'gbtree', early_stopping_rounds = 10,
+  nrounds = to_tune(10, 1000),
+  eta = to_tune(p_dbl(1e-04, 1, logscale = TRUE)),
+  max_depth = to_tune(2, 10),
+  min_child_weight = to_tune(1, 100, logscale = TRUE),
+  alpha  = to_tune(1e-03, 10, logscale = TRUE),
+  lambda = to_tune(1e-03, 10, logscale = TRUE))
+xgboost_at = AutoTuner$new(
+  learner = xgboost,
+  resampling = rsmp('cv', folds = 5),
+  measure = msr('surv.cindex'),
+  terminator = trm('evals', n_evals = 250), # 10 - 100
+  tuner = tnr('mbo')
+)
+xgboost_at$id = 'XGBoost'
 
-learners = list(cox, rpart, ranger)
+learners = list(cox, rpart, ranger, xgboost_at)
 
 # Train & Test ----
 preds  = list()
